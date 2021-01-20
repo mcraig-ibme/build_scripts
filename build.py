@@ -24,7 +24,7 @@ MODULES = [
     ])
 ]
 
-GITHUB_ORG = "ibme-qubic"
+GITHUB_ORG = "physimals"
 
 GITHUB_MODULES = [
     "fabber_core", 
@@ -35,6 +35,7 @@ GITHUB_MODULES = [
     "fabber_models_dualecho", 
     "fabber_models_dwi",  
     "fabber_models_T1", 
+    "fabber_models_qbold",
     "pyfab",
     "basil",
     "verbena", 
