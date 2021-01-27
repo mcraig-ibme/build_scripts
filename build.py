@@ -60,6 +60,7 @@ GITHUB_MODULES = [
     "quantiphyse",
     "svb",
     "svb_models_asl",
+    "vb_models_cvr",
     "avb",
 ]
 
@@ -158,13 +159,11 @@ def check_error(retval, text, options):
         if options.exit_on_error:
             sys.exit(retval)
 
-def build_make(moddir, options, installdir=None):
+def build_make(moddir, options):
     """ 
     Build a module using the makefile.
     """
     print("\nBuilding %s using MAKE" % moddir)
-    if installdir is None:
-        installdir = options.fsldev
     os.chdir(moddir)
 
     build_type = ""
@@ -180,10 +179,8 @@ def build_make(moddir, options, installdir=None):
         retval = os.system("make install")
         check_error(retval, "Failed to install %s" % moddir, options)
 
-def build_python(moddir, options, installdir=None):
+def build_python(moddir, options):
     print("\nBuilding %s using setup.py" % moddir)
-    if installdir is None:
-        installdir = options.fsldev
     os.chdir(moddir)
 
     retval = os.system("python setup.py sdist bdist" )
@@ -258,7 +255,9 @@ p.add_option("--rebuild", dest="rebuild", action="store_true", help="Rebuild cod
 p.add_option("--clean", help="Do make clean before rebuilding", action="store_true", default=False)
 p.add_option("--install", help="Install code after build", action="store_true", default=False)
 p.add_option("--no-python", help="Don't build python modules", action="store_true", default=False)
-p.add_option("--fsldev", dest="fsldev", help="Source directory for FSLDEVDIR. Defaults to install/fsldev ", default=None)
+p.add_option("--fsldevdir", help="FSLDEVDIR installation location. Defaults to environment variable or fsldev if not set", default=None)
+p.add_option("--fsldir", help="FSLDIR installation location. Defaults to environment variable", default=None)
+p.add_option("--builddir", help="Build directory. Defaults to working directory", default=None)
 p.add_option("--build-bundles", dest="build_bundles", action="store_true", help="Build bundle releases", default=False)
 p.add_option("--continue-on-error", dest="exit_on_error", action="store_false", help="Continue build if there is an error", default=True)
 options, args = p.parse_args()
@@ -267,26 +266,36 @@ options.win = sys.platform.startswith("win")
 options.osx = sys.platform.startswith("darwin")
 options.platform = get_platform_name(options)
 options.rootdir = os.path.abspath(os.path.dirname(__file__))
+if options.builddir is None:
+    options.builddir = options.rootdir
+options.pkgdir = os.path.join(options.rootdir, "packages")
 
 # Some Git configuration to make things go smoothly. Longfiles is required on Windows
 os.system('git config --global core.longpaths true')
 os.system('git config --global credential.helper "cache --timeout 28800"')
 
-options.builddir = os.path.join(options.rootdir, "build")
-options.installdir = os.path.join(options.rootdir, "install")
-options.pkgdir = os.path.join(options.rootdir, "packages")
-
 if not os.path.exists(options.builddir):
     os.makedirs(options.builddir)
-    
-if not options.fsldev:
-    options.fsldev = os.path.join(options.installdir, "fsldev")
-else:
-    options.fsldev = os.path.abspath(options.fsldev)
 
-options.fsldir = os.environ["FSLDIR"]
+# Capture FSLDIR/FSLDEVDIR and make sure set in environment for subsequent 'make/make install'
+if not options.fsldir:
+    if "FSLDIR" in os.environ:
+        options.fsldir = os.path.abspath(os.environ["FSLDIR"])
+    else:
+        raise RuntimeError("FSLDIR is not defined in environment and --fsldir not given")
+else:
+    options.fsldir = os.path.abspath(options.fsldir)
+    
+if not options.fsldevdir:
+    if "FSLDEVDIR" in os.environ:
+        options.fsldevdir = os.path.abspath(os.environ["FSLDEVDIR"])
+    else:
+        options.fsldevdir = os.path.join(options.rootdir, "fsldev")
+else:
+    options.fsldevdir = os.path.abspath(options.fsldevdir)
+
 os.environ["FSLDIR"] = options.fsldir
-os.environ["FSLDEVDIR"] = options.fsldev
+os.environ["FSLDEVDIR"] = options.fsldevdir
 
 if options.update:
     print("\nUpdating code from GIT\n")
@@ -298,7 +307,7 @@ if options.rebuild:
     print("\nRebuilding code\n")
     print("Building on: %s" % options.platform)
     print("Using FSL in: %s" % options.fsldir)
-    print("Local FSL code installed to: %s" % options.fsldev)
+    print("Local code installed to: %s" % options.fsldevdir)
     if options.debug:
         print("Doing debug build")
     if options.win: 
@@ -314,9 +323,6 @@ if options.rebuild:
     # Set up options to build using Make
     os.environ["FSLCONFDIR"] = os.path.join(options.fsldir, "config")
     os.environ["FSLMACHTYPE"] = get_output([os.path.join(options.fsldir, "etc", "fslconf", "fslmachtype.sh")])
-    
-    print("Installing into %s" % options.fsldev)
-    cleandir(options.fsldev)
 
     # Build all modules
     for mod in GITHUB_MODULES:
@@ -325,8 +331,9 @@ if options.rebuild:
         if not os.path.exists(moddir):
             update(mod, options)
 
-        if os.path.exists(os.path.join(moddir, "setup.py")) and not options.no_python:
-            build_python(moddir, options)
+        if os.path.exists(os.path.join(moddir, "setup.py")):
+            if not options.no_python:
+                build_python(moddir, options)
         elif not options.win:
             build_make(moddir, options)
         else:
@@ -342,7 +349,7 @@ if options.build_bundles:
         cleandir(bundle_name)
         for src, dest_items in bundle_data.items():
             if src == "__version__": continue
-            src = src.replace("${BUILDDIR}", options.builddir).replace("${FSLDEVDIR}", options.fsldev)
+            src = src.replace("${BUILDDIR}", options.builddir).replace("${FSLDEVDIR}", options.fsldevdir)
             if src == "${PYTHON}":
                 for mod_name in dest_items:
                     bundle_module(mod_name, bundle_name)
