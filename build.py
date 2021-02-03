@@ -59,6 +59,7 @@ GITHUB_MODULES = [
     "quantiphyse-deeds",
     "quantiphyse-perfsim",
     "quantiphyse-cvr",
+    "quantiphyse-qbold",
     "quantiphyse",
     "svb",
     "svb_models_asl",
