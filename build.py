@@ -71,41 +71,53 @@ TAGS = {}
 
 # Bundle releases
 BUNDLES = {
-    "oxford_asl" : {
+    "oxford_asl_ukb" : {
+        "__version__" : "oxford_asl",
+        "__platform__" : "noarch",
         "${BUILDDIR}/oxford_asl" : ["CITE", "README.md", "LICENSE"],
         "${FSLDEVDIR}/bin" : [
-            "asl_calib", "asl_file", "asl_deblur", "asl_gui", 
-            "asl_reg", "asl_mfree", "quasil", "oxford_asl", "epi_reg", 
-            "basil", "basil_var", "fabber_var", "fabber_asl", "mvntool"
+            "asl_calib", "asl_reg", "oxford_asl", "epi_reg", 
+            "basil", "basil_var", "oxford_asl_roi_stats.py",
         ],
-        "${FSLDEVDIR}" : ["python/asl",],
-    },
-    "verbena" : {
-        "${BUILDDIR}/verbena" : ["CITE", "README.md", "LICENSE"],
-        "${FSLDEVDIR}/bin" : ["verbena", "fabber_dsc", "mvntool"],
-    },
-    "ENABLE" : {
-        "${BUILDDIR}/ENABLE" : ["README.md", "LICENSE"],
-        "${FSLDEVDIR}/bin" : ["asl_enable",],
-        "${FSLDEVDIR}/python" : [
-            "asl/__init__.py", "asl/preproc.py", 
-            "asl/enable.py", "asl/fslwrap.py",
-            "asl/image.py",
+        "${FSLDIR}/bin" : [
+            "epi_reg",
         ],
     },
-    "oxasl" : {
-        "${BUILDDIR}/oxasl" : ["README.md", "oxasl_run"],
-        "${FSLDEVDIR}" : [
-            "bin/epi_reg", "bin/veasl", "bin/fabber_asl*",
-            "lib/*fabbercore_shared.*", "lib/*fabber_models_asl.*",
-        ],
-        "${PYTHON}" : ["oxasl", "oxasl_ve", "fabber", "fsl", ],
-    },
-    "fabber" : {
-        "__version__" : "fabber_core",
-        "${BUILDDIR}/fabber_core" : ["README.md", "LICENSE"],
-        "${FSLDEVDIR}" : ["bin/fabber*", "lib/*fabber*", "include/fabber_core"],
-    },
+    #"oxford_asl" : {
+    #    "${BUILDDIR}/oxford_asl" : ["CITE", "README.md", "LICENSE"],
+    #    "${FSLDEVDIR}/bin" : [
+    #        "asl_calib", "asl_file", "asl_deblur", "asl_gui", 
+    #        "asl_reg", "asl_mfree", "quasil", "oxford_asl", "epi_reg", 
+    #        "basil", "basil_var", "fabber_var", "fabber_asl", "mvntool"
+    #    ],
+    #    "${FSLDEVDIR}" : ["python/asl",],
+    #},
+    #"verbena" : {
+    #    "${BUILDDIR}/verbena" : ["CITE", "README.md", "LICENSE"],
+    #    "${FSLDEVDIR}/bin" : ["verbena", "fabber_dsc", "mvntool"],
+    #},
+    #"ENABLE" : {
+    #    "${BUILDDIR}/ENABLE" : ["README.md", "LICENSE"],
+    #    "${FSLDEVDIR}/bin" : ["asl_enable",],
+    #    "${FSLDEVDIR}/python" : [
+    #        "asl/__init__.py", "asl/preproc.py", 
+    #        "asl/enable.py", "asl/fslwrap.py",
+    #        "asl/image.py",
+    #    ],
+    #},
+    #"oxasl" : {
+    #    "${BUILDDIR}/oxasl" : ["README.md", "oxasl_run"],
+    #    "${FSLDEVDIR}" : [
+    #        "bin/epi_reg", "bin/veasl", "bin/fabber_asl*",
+    #        "lib/*fabbercore_shared.*", "lib/*fabber_models_asl.*",
+    #    ],
+    #    "${PYTHON}" : ["oxasl", "oxasl_ve", "fabber", "fsl", ],
+    #},
+    #"fabber" : {
+    #    "__version__" : "fabber_core",
+    #    "${BUILDDIR}/fabber_core" : ["README.md", "LICENSE"],
+    #    "${FSLDEVDIR}" : ["bin/fabber*", "lib/*fabber*", "include/fabber_core"],
+    #},
 }
 
 def bundle_module(mod_name, destdir):
@@ -345,14 +357,16 @@ if options.rebuild:
 # Make bundle release packages
 if options.build_bundles:
     print("\nCreating bundle packages\n")
+    if not os.path.exists(options.pkgdir):
+        os.makedirs(options.pkgdir)
     for bundle_name, bundle_data in BUNDLES.items():
         if options.win and mod in WIN_SKIP: 
             continue
         os.chdir(options.pkgdir)
         cleandir(bundle_name)
         for src, dest_items in bundle_data.items():
-            if src == "__version__": continue
-            src = src.replace("${BUILDDIR}", options.builddir).replace("${FSLDEVDIR}", options.fsldevdir)
+            if src.startswith("__"): continue
+            src = src.replace("${BUILDDIR}", options.builddir).replace("${FSLDEVDIR}", options.fsldevdir).replace("${FSLDIR}", options.fsldir)
             if src == "${PYTHON}":
                 for mod_name in dest_items:
                     bundle_module(mod_name, bundle_name)
@@ -372,7 +386,8 @@ if options.build_bundles:
 
         version_mod = bundle_data.get("__version__", bundle_name)
         version_str = get_version_str(os.path.join(options.builddir, version_mod))
-        zipname = "%s/%s-%s-%s.tar.gz" % (options.pkgdir, bundle_name, version_str, options.platform)
+        platform_str = bundle_data.get("__platform__", options.platform)
+        zipname = "%s/%s-%s-%s.tar.gz" % (options.pkgdir, bundle_name, version_str, platform_str)
         # Sadly shutil.make_archive is not in python 2.6 on Centos 6
         os.system("tar -czf %s %s" % (zipname, bundle_name))
 
