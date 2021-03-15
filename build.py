@@ -92,10 +92,11 @@ BUNDLES = {
     #    ],
     #    "${FSLDEVDIR}" : ["python/asl",],
     #},
-    #"verbena" : {
-    #    "${BUILDDIR}/verbena" : ["CITE", "README.md", "LICENSE"],
-    #    "${FSLDEVDIR}/bin" : ["verbena", "fabber_dsc", "mvntool"],
-    #},
+    "verbena" : {
+        "__platform__" : "noarch",
+        "${BUILDDIR}/verbena" : ["CITE", "README.md", "LICENSE"],
+        "${FSLDEVDIR}/bin" : ["verbena", ],
+    },
     #"ENABLE" : {
     #    "${BUILDDIR}/ENABLE" : ["README.md", "LICENSE"],
     #    "${FSLDEVDIR}/bin" : ["asl_enable",],
